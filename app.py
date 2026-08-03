@@ -23,6 +23,13 @@ def health():
         }
     )
 
+@app.route("/info")
+def info():
+    return jsonify({
+        "application": Config.APP_NAME,
+        "version": Config.APP_VERSION,
+        "server": "gunicorn"
+    })
 
 if __name__ == "__main__":
-    app.run(debug=Config.DEBUG)
+    app.run(host="0.0.0.0", port=5000, debug=Config.DEBUG)
