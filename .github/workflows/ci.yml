@@ -23,6 +23,22 @@ jobs:
         with:
           python-version: "3.13"
 
+      - name: Install Python Dependencies
+        working-directory: app
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Python Syntax Check
+        working-directory: app
+        run: |
+          python -m compileall .
+
+      - name: Verify Flask Imports
+        working-directory: app
+        run: |
+          python -c "import app"
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
@@ -41,6 +57,13 @@ jobs:
 
         run: terraform validate
 
+      - name: Run Checkov Scan
+        uses: bridgecrewio/checkov-action@v12
+
+        with:
+          directory: terraform
+          framework: terraform
+          quiet: true
 
       - name: Build Docker Image
         run: |
