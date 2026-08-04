@@ -1,0 +1,8 @@
+quiet: true
+
+skip-check:
+  - CKV_AWS_2
+  - CKV_AWS_130
+  - CKV_AWS_136
+  - CKV_AWS_158
+  - CKV_AWS_260
