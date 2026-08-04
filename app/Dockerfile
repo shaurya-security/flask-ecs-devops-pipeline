@@ -1,7 +1,7 @@
 # ---------- Stage 1 : Builder ----------
 FROM python:3.13-slim AS builder
 
-WORKDIR /temp
+WORKDIR /app
 
 COPY requirements.txt .
 
