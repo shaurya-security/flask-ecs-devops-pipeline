@@ -13,7 +13,7 @@ def home():
     )
 
 
-@app.route("/health")
+@app.route("/healthy")
 def health():
     return jsonify(
         {
