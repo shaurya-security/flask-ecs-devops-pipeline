@@ -26,8 +26,17 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
-      - name: Verify Tools
-        run: |
-          python --version
-          terraform version
-          docker --version
+      - name: Terraform Format Check
+        working-directory: terraform
+
+        run: terraform fmt -check -recursive
+
+      - name: Terraform Initialize
+        working-directory: terraform
+
+        run: terraform init -backend=false
+
+      - name: Terraform Validate
+        working-directory: terraform
+
+        run: terraform validate
