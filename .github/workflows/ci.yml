@@ -40,3 +40,35 @@ jobs:
         working-directory: terraform
 
         run: terraform validate
+
+
+      - name: Build Docker Image
+        run: |
+          docker build \
+            -t flask-ecs-cicd-demo:test \
+            app
+
+      - name: Start Container
+        run: |
+          docker run -d \
+            --name flask-demo \
+            -p 5000:5000 \
+            flask-ecs-cicd-demo:test
+
+      - name: Wait for Startup
+        run: sleep 5
+
+      - name: Verify Health Endpoint
+        run: |
+          curl --fail http://localhost:5000/health
+
+      - name: Verify Info Endpoint
+        run: |
+          curl --fail http://localhost:5000/info
+
+      - name: Cleanup
+        if: always()
+
+        run: |
+          docker stop flask-demo
+          docker rm flask-demo
