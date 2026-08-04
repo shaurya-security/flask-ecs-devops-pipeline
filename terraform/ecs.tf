@@ -33,6 +33,22 @@ resource "aws_ecs_task_definition" "flask" {
         }
       ]
 
+      environment = [
+        {
+          name  = "APP_NAME"
+          value = local.project_name
+        },
+        {
+          name  = "APP_VERSION"
+          value = "3.0"
+        },
+        {
+          name  = "DEBUG"
+          value = "False"
+        }
+      ]
+
+
       logConfiguration = {
 
         logDriver = "awslogs"
