@@ -51,15 +51,16 @@ data "aws_iam_policy_document" "github_oidc_assume_role" {
     }
 
     condition {
-
-      test = "StringLike"
-
+      test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-
       values = [
-        "repo:${var.github_owner}/${var.github_repo}:*"
+        "repo:${var.github_owner}/${var.github_repo}:ref:refs/heads/main",
+        "repo:${var.github_owner}/${var.github_repo}:pull_request"
+
       ]
     }
+
+
   }
 }
 
