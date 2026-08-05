@@ -175,7 +175,7 @@ jobs:
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
 
         with:
-          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          task-definition: ${{ steps.render-task.outputs.task-definition }}
 
           cluster: shaurya-devops-ecs-cluster
 
