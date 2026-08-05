@@ -4,7 +4,7 @@ resource "aws_lb" "main" {
   internal           = false
   load_balancer_type = "application"
 
-  enable_deletion_protection = true
+  enable_deletion_protection = false
   drop_invalid_header_fields = true
 
   security_groups = [
