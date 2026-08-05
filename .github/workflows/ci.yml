@@ -61,13 +61,6 @@ jobs:
 
         run: terraform validate
 
-      - name: Terraform Apply on Merge
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        working-directory: terraform
-        run: |
-          terraform init
-          terraform apply -auto-approve
-
       - name: Run Checkov Scan
         uses: bridgecrewio/checkov-action@v12
 
