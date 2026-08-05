@@ -66,17 +66,30 @@ resource "aws_iam_role" "github_actions" {
 #############################################
 
 data "aws_iam_policy_document" "github_actions_policy" {
+  # Statement 1: ECR Authentication & Registry Read (Requires "*" resources)
   statement {
-    sid = "ECR"
+    sid = "ECRAuthAndRead"
 
     actions = [
       "ecr:GetAuthorizationToken",
+      "ecr:DescribeRepositories"
+    ]
+
+    resources = ["*"]
+  }
+
+  # Statement 2: Scoped Image Push/Pull Permissions for specific repository
+  statement {
+    sid = "ECRRepositoryAccess"
+
+    actions = [
       "ecr:BatchCheckLayerAvailability",
-      "ecr:CompleteLayerUpload",
+      "ecr:GetDownloadUrlForLayer",
+      "ecr:BatchGetImage",
       "ecr:InitiateLayerUpload",
       "ecr:UploadLayerPart",
-      "ecr:PutImage",
-      "ecr:BatchGetImage"
+      "ecr:CompleteLayerUpload",
+      "ecr:PutImage"
     ]
 
     resources = [aws_ecr_repository.app.arn]
