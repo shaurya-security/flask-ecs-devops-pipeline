@@ -95,20 +95,31 @@ data "aws_iam_policy_document" "github_actions_policy" {
     resources = [aws_ecr_repository.app.arn]
   }
 
-  # Statement 3: ECS Deployment Permissions
+# Statement 3a: Read/Register Task Definitions (Requires "*" as task definitions are version-appended)
   statement {
-    sid = "ECSDeployment"
+    sid = "ECSTaskDefManagement"
 
     actions = [
       "ecs:DescribeTaskDefinition",
-      "ecs:RegisterTaskDefinition",
-      "ecs:UpdateService",
-      "ecs:DescribeServices"
+      "ecs:RegisterTaskDefinition"
     ]
 
     resources = ["*"]
   }
 
+  # Statement 3b: Scoped ECS Service Deployment Actions
+  statement {
+    sid = "ECSServiceDeployment"
+
+    actions = [
+      "ecs:UpdateService",
+      "ecs:DescribeServices"
+    ]
+
+    resources = [
+      aws_ecs_service.flask.id
+    ]
+  }
   # Statement 4: IAM PassRole Permission for ECS Task Execution Role
   statement {
     sid = "PassExecutionRole"
