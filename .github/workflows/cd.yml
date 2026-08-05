@@ -11,8 +11,13 @@ permissions:
   id-token: write
   contents: read
 
+concurrency:
+  group: ecs-production
+  cancel-in-progress: true
+
 jobs:
   deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
 
     steps:
