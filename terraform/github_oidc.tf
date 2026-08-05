@@ -3,17 +3,11 @@
 #############################################
 
 resource "aws_iam_openid_connect_provider" "github" {
+  url            = "https://token.actions.githubusercontent.com"
+  client_id_list = ["sts.amazonaws.com"]
 
-  url = "https://token.actions.githubusercontent.com"
-
-  client_id_list = [
-    "sts.amazonaws.com"
-  ]
-
-  thumbprint_list = [
-    "6938fd4d98bab03faadb97b34396831e3780aea1",
-    "1c58a3a8518e8759bf075b76b750d4f2df264fcd"
-  ]
+  # AWS manages GitHub OIDC root CAs automatically; empty list avoids root cert rotation breakages
+  thumbprint_list = []
 }
 
 #############################################
@@ -21,33 +15,19 @@ resource "aws_iam_openid_connect_provider" "github" {
 #############################################
 
 data "aws_iam_policy_document" "github_oidc_assume_role" {
-
   statement {
-
-    effect = "Allow"
-
-    actions = [
-      "sts:AssumeRoleWithWebIdentity"
-    ]
+    effect  = "Allow"
+    actions = ["sts:AssumeRoleWithWebIdentity"]
 
     principals {
-
-      type = "Federated"
-
-      identifiers = [
-        aws_iam_openid_connect_provider.github.arn
-      ]
+      type        = "Federated"
+      identifiers = [aws_iam_openid_connect_provider.github.arn]
     }
 
     condition {
-
-      test = "StringEquals"
-
+      test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:aud"
-
-      values = [
-        "sts.amazonaws.com"
-      ]
+      values   = ["sts.amazonaws.com"]
     }
 
     condition {
@@ -56,11 +36,8 @@ data "aws_iam_policy_document" "github_oidc_assume_role" {
       values = [
         "repo:${var.github_owner}/${var.github_repo}:ref:refs/heads/main",
         "repo:${var.github_owner}/${var.github_repo}:pull_request"
-
       ]
     }
-
-
   }
 }
 
@@ -69,9 +46,7 @@ data "aws_iam_policy_document" "github_oidc_assume_role" {
 #############################################
 
 resource "aws_iam_role" "github_actions" {
-
-  name = "${local.owner}-github-actions-role"
-
+  name               = "${local.owner}-github-actions-role"
   assume_role_policy = data.aws_iam_policy_document.github_oidc_assume_role.json
 
   tags = {
@@ -84,25 +59,16 @@ resource "aws_iam_role" "github_actions" {
 #############################################
 
 data "aws_iam_policy_document" "github_actions_policy" {
-
   statement {
-
     sid = "ECR"
 
     actions = [
-
       "ecr:GetAuthorizationToken",
-
       "ecr:BatchCheckLayerAvailability",
-
       "ecr:CompleteLayerUpload",
-
       "ecr:InitiateLayerUpload",
-
       "ecr:UploadLayerPart",
-
       "ecr:PutImage",
-
       "ecr:BatchGetImage"
     ]
 
@@ -111,16 +77,12 @@ data "aws_iam_policy_document" "github_actions_policy" {
 }
 
 resource "aws_iam_policy" "github_actions" {
-
-  name = "${local.owner}-github-actions-policy"
-
+  name   = "${local.owner}-github-actions-policy"
   policy = data.aws_iam_policy_document.github_actions_policy.json
 }
 
 resource "aws_iam_role_policy_attachment" "github_actions" {
-
-  role = aws_iam_role.github_actions.name
-
+  role       = aws_iam_role.github_actions.name
   policy_arn = aws_iam_policy.github_actions.arn
 }
 
@@ -129,6 +91,5 @@ resource "aws_iam_role_policy_attachment" "github_actions" {
 #############################################
 
 output "github_actions_role_arn" {
-
   value = aws_iam_role.github_actions.arn
 }
