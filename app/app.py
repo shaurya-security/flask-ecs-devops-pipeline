@@ -10,6 +10,7 @@ def home():
         "index.html",
         app_name=Config.APP_NAME,
         version=Config.APP_VERSION,
+        message=Config.CUSTOM_MESSAGE,
     )
 
 
