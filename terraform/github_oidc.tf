@@ -95,7 +95,7 @@ data "aws_iam_policy_document" "github_actions_policy" {
     resources = [aws_ecr_repository.app.arn]
   }
 
-# Statement 3a: Read/Register Task Definitions (Requires "*" as task definitions are version-appended)
+  # Statement 3a: Read/Register Task Definitions (Requires "*" as task definitions are version-appended)
   statement {
     sid = "ECSTaskDefManagement"
 
