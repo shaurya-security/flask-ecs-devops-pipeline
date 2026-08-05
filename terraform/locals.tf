@@ -2,7 +2,7 @@ locals {
   owner        = var.owner
   vpc_name     = "${local.owner}-vpc"
   igw_name     = "${local.owner}-igw"
-  project_name = "flask-ecs-cicd-demo"
+  project_name = "flask-ecs-devops-pipeline"
 
   # Subnet naming architecture
   subnet_name         = "${local.owner}-subnet"

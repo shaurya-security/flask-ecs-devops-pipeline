@@ -40,7 +40,7 @@ To inspect the JWT payload, the following diagnostic step was executed inside th
 The decoded JWT token revealed that GitHub formatted the `sub` claim with internal numerical IDs (`@277283673` and `@1323100445`):
 
 ```json
-"sub": "repo:shaurya-security@277283673/flask-ecs-cicd-demo@1323100445:ref:refs/heads/main"
+"sub": "repo:shaurya-security@277283673/flask-ecs-devops-pipeline@1323100445:ref:refs/heads/main"
 
 ```
 

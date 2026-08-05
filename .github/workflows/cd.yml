@@ -34,17 +34,20 @@ jobs:
       - name: Build, Tag, and Push Image to ECR
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: flask-ecs-cicd-demo
+          ECR_REPOSITORY: flask-ecs-devops-pipeline
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG app
+          docker build \
+            --build-arg APP_VERSION=${IMAGE_TAG} \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG app
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
 
       # --- 3. ECS DEPLOYMENT ---
       - name: Download Current Task Definition
         run: |
           aws ecs describe-task-definition \
-            --task-definition flask-ecs-cicd-demo \
+            --task-definition flask-ecs-devops-pipeline \
             --query taskDefinition | jq 'del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' > task-definition.json
 
       - name: Render ECS Task Definition
@@ -52,8 +55,8 @@ jobs:
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
           task-definition: task-definition.json
-          container-name: flask-ecs-cicd-demo
-          image: ${{ steps.login-ecr.outputs.registry }}/flask-ecs-cicd-demo:${{ github.sha }}
+          container-name: flask-ecs-devops-pipeline
+          image: ${{ steps.login-ecr.outputs.registry }}/flask-ecs-devops-pipeline:${{ github.sha }}
 
       - name: Deploy to Amazon ECS
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2

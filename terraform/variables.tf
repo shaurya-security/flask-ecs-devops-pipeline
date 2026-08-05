@@ -29,5 +29,5 @@ variable "github_owner" {
 variable "github_repo" {
   description = "GitHub repository name"
   type        = string
-  default     = "flask-ecs-cicd-demo"
+  default     = "flask-ecs-devops-pipeline"
 }

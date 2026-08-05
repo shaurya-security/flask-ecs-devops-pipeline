@@ -13,6 +13,9 @@ RUN pip install --no-cache-dir \
 # ---------- Stage 2 : Runtime ----------
 FROM python:3.13-slim
 
+ARG APP_VERSION=0.0.1
+ENV APP_VERSION=${APP_VERSION}
+
 WORKDIR /app
 
 COPY --from=builder /install /usr/local

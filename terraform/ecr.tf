@@ -1,5 +1,5 @@
 resource "aws_ecr_repository" "app" {
-  name                 = "flask-ecs-cicd-demo"
+  name                 = "flask-ecs-devops-pipeline"
   image_tag_mutability = "IMMUTABLE"
 
   image_scanning_configuration {
@@ -11,7 +11,7 @@ resource "aws_ecr_repository" "app" {
   }
 
   tags = {
-    Name = "flask-ecs-cicd-demo"
+    Name = "flask-ecs-devops-pipeline"
   }
 }
 

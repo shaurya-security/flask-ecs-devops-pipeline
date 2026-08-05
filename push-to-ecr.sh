@@ -12,7 +12,7 @@ PROJECT_ROOT="${SCRIPT_DIR}"
 
 # Target application configurations
 IMAGE_TAG="3.0"
-APP_NAME="flask-ecs-cicd-demo"
+APP_NAME="flask-ecs-devops-pipeline"
 TERRAFORM_DIR="${PROJECT_ROOT}/terraform"
 APP_DIR="${PROJECT_ROOT}/app"
 

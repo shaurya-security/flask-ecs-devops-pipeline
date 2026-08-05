@@ -55,11 +55,14 @@ jobs:
 
       # --- 3. DOCKER INTEGRATION TEST ---
       - name: Build Local Test Image
-        run: docker build -t flask-ecs-cicd-demo:test app
+        run: |
+          docker build \
+            --build-arg APP_VERSION=${{ github.sha }} \
+            -t flask-ecs-devops-pipeline:test app
 
       - name: Test Container Health
         run: |
-          docker run -d --name flask-demo -p 5000:5000 flask-ecs-cicd-demo:test
+          docker run -d --name flask-demo -p 5000:5000 flask-ecs-devops-pipeline:test
           sleep 5
           curl --fail http://localhost:5000/health
           curl --fail http://localhost:5000/info
