@@ -152,10 +152,43 @@ jobs:
           aws ecr list-images \
             --repository-name flask-ecs-cicd-demo
 
+      - name: Download Current Task Definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition flask-ecs-cicd-demo \
+            --query taskDefinition \
+            > task-definition.json
+
+      - name: Render ECS Task Definition
+        id: render-task
+
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+
+        with:
+          task-definition: task-definition.json
+          container-name: flask-ecs-cicd-demo
+          image: ${{ steps.login-ecr.outputs.registry }}/flask-ecs-cicd-demo:${{ github.sha }}
 
 
+      - name: Deploy to Amazon ECS
 
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
 
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+
+          cluster: shaurya-devops-ecs-cluster
+
+          service: shaurya-devops-flask-service
+
+          wait-for-service-stability: true
+
+      - name: Show Running Task Definition
+        run: |
+          aws ecs describe-services \
+            --cluster shaurya-devops-ecs-cluster \
+            --services shaurya-devops-flask-service \
+            --query "services[0].taskDefinition"
 
 
 
