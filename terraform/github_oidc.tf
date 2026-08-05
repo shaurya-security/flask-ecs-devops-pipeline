@@ -24,22 +24,21 @@ data "aws_iam_policy_document" "github_oidc_assume_role" {
       identifiers = [aws_iam_openid_connect_provider.github.arn]
     }
 
-    # 1. Required Audience check
+    # 1. Enforce correct token audience
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:aud"
       values   = ["sts.amazonaws.com"]
     }
 
-    # 2. Required by AWS IAM: Must evaluate 'sub'
-    # Wildcards '*' flexibly match internal GitHub ID annotations (@277283673, etc.)
+    # 2. Satisfy AWS IAM mandatory 'sub' check using wildcards for ID strings
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
       values   = ["repo:${var.github_owner}*/*:ref:refs/heads/main"]
     }
 
-    # 3. Precise Repository check
+    # 3. Enforce precise repository path matching
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:repository"
@@ -94,6 +93,33 @@ data "aws_iam_policy_document" "github_actions_policy" {
     ]
 
     resources = [aws_ecr_repository.app.arn]
+  }
+
+  # Statement 3: ECS Deployment Permissions
+  statement {
+    sid = "ECSDeployment"
+
+    actions = [
+      "ecs:DescribeTaskDefinition",
+      "ecs:RegisterTaskDefinition",
+      "ecs:UpdateService",
+      "ecs:DescribeServices"
+    ]
+
+    resources = ["*"]
+  }
+
+  # Statement 4: IAM PassRole Permission for ECS Task Execution Role
+  statement {
+    sid = "PassExecutionRole"
+
+    actions = [
+      "iam:PassRole"
+    ]
+
+    resources = [
+      aws_iam_role.ecs_execution_role.arn
+    ]
   }
 }
 
