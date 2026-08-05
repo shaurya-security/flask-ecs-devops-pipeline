@@ -1,8 +1,11 @@
 name: Continuous Deployment
 
 on:
-  push:
-    branches: [ main ]
+  workflow_run:
+      workflows: ["Continuous Integration"]  # Must match the 'name:' in ci.yml
+      types:
+        - completed
+      branches: [ main ]
 
 permissions:
   id-token: write
