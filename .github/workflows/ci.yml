@@ -122,6 +122,42 @@ jobs:
         run: |
           aws ecr describe-repositories
 
+      - name: Build Docker Image
+        run: |
+          docker build \
+            -t flask-ecs-cicd-demo:${{ github.sha }} \
+            app
+
+      - name: Tag Image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: flask-ecs-cicd-demo
+
+        run: |
+          docker tag \
+            flask-ecs-cicd-demo:${{ github.sha }} \
+            $ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }}
+
+      - name: Push Image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: flask-ecs-cicd-demo
+
+        run: |
+          docker push \
+            $ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }}
+
+      - name: Verify Image
+        run: |
+          aws ecr list-images \
+            --repository-name flask-ecs-cicd-demo
+
+
+
+
+
+
+
 
       - name: Cleanup
         if: always()
@@ -129,3 +165,4 @@ jobs:
         run: |
           docker stop flask-demo
           docker rm flask-demo
+
