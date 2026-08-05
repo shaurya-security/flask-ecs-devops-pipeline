@@ -1,74 +1,84 @@
-# Error Symtoms 
-Persisting Error of "Error: Could not assume role with OIDC: Not authorized to perform sts:AssumeRoleWithWebIdentity"
-Despite theoretically robust AWS OIDC configuration. 
 
-# Effective Problem Recon
+---
 
-In CI workflow: 
+# AWS IAM OIDC Authentication Failure: GitHub Actions JWT Analysis & Resolution
 
-      - name: Debug OIDC Token Claims
-        run: |
-          # Request ID token from GitHub OIDC provider
-          TOKEN=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r '.value')
-          
-          # Decode base64 payload to inspect claims
-          echo "=== OIDC TOKEN PAYLOAD ==="
-          echo "$TOKEN" | jq -R 'split(".") | .[1] | @base64d | fromjson'
+## 🚨 Error Symptoms
 
-      - name: Configure AWS Credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ap-south-1
+Workflows fail at the authentication step with the error:
 
-# Findings 
-Result from Github Actions : 
+```text
+Error: Could not assume role with OIDC: Not authorized to perform sts:AssumeRoleWithWebIdentity
 
-  "sub": "repo:shaurya-security@277283673/flask-ecs-cicd-demo@1323100445:ref:refs/heads/main",
+```
 
-While my config : 
-    condition {
+This occurs despite having a standard, syntactically correct AWS IAM OIDC trust policy configured.
 
-      test = "StringEquals"
+---
 
-      variable = "token.actions.githubusercontent.com:sub"
+## 🔍 Incident Investigation & Payload Analysis
 
-      values = [
-        "repo:${var.github_owner}/${var.github_repo}:ref:refs/heads/main"
-      ]
-    }
+### 1. Token Inspection Step
 
+To inspect the JWT payload, the following diagnostic step was executed inside the GitHub Actions workflow prior to calling `aws-actions/configure-aws-credentials`:
 
-# Precise problem and fix
+```yaml
+- name: Debug OIDC Token Claims
+  run: |
+    # Request ID token from GitHub OIDC provider
+    TOKEN=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+      "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r '.value')
+    
+    # Decode base64 JWT payload
+    echo "=== OIDC TOKEN PAYLOAD ==="
+    echo "$TOKEN" | jq -R 'split(".") | .[1] | @base64d | fromjson'
+
+```
+
+### 2. Discrepancy Identified
+
+The decoded JWT token revealed that GitHub formatted the `sub` claim with internal numerical IDs (`@277283673` and `@1323100445`):
 
 ```json
 "sub": "repo:shaurya-security@277283673/flask-ecs-cicd-demo@1323100445:ref:refs/heads/main"
 
 ```
 
-Those **`@277283673`** and **`@1323100445`** string injections inside my `sub` claim.
+However, the Terraform trust policy was configured with a strict string match using human-readable names:
 
-### Why is this happening?
-
-My GitHub account/repo is customized or managed under an enterprise policy that formats `sub` using **Repository IDs** (e.g., `repo:<owner-id>/<repo-id>:ref:...`) rather than standard names (`repo:<owner>/<repo>:ref:...`).
-
-Because AWS IAM evaluates My conditions strictly against the string you pass, matching `repo:shaurya-security/flask-ecs-cicd-demo:*` fails completely!
-
----
-
-## The Fix
-
-Instead of matching against `sub` (which contains injected numerical IDs in my setup), match against the **`repository`** claim directly! Line `52` of my payload shows:
-
-```json
-"repository": "shaurya-security/flask-ecs-cicd-demo"
+```hcl
+condition {
+  test     = "StringEquals"
+  variable = "token.actions.githubusercontent.com:sub"
+  values   = ["repo:${var.github_owner}/${var.github_repo}:ref:refs/heads/main"]
+}
 
 ```
 
-### Update `github_oidc.tf`
+Because AWS IAM evaluates trust conditions literally, strict string evaluation against `sub` failed completely.
 
-Update my trust policy condition in Terraform to use `repository` instead of `sub`:
+---
+
+## ⚠️ Key Constraint: AWS IAM Policy Validation
+
+An initial attempt to fix this involved dropping the `sub` claim check entirely in favor of matching solely on `token.actions.githubusercontent.com:repository`.
+
+However, AWS IAM rejects this with a `MalformedPolicyDocument` error:
+
+```text
+MalformedPolicyDocument: Trust policy with trusted principal [...] must evaluate, using StringEquals, StringLike or StringEqualsIgnoreCase, token.actions.githubusercontent.com:sub or token.actions.githubusercontent.com:job_workflow_ref which is not scoped to all.
+
+```
+
+**Takeaway:** AWS IAM strictly mandates evaluating either `sub` or `job_workflow_ref` to prevent open trust relationship vulnerabilities across tenant boundaries.
+
+---
+
+## 🛠️ The Final Working Solution
+
+To satisfy **AWS IAM policy enforcement rules** while safely handling **GitHub's injected numerical IDs**, the trust policy was updated to use `StringLike` wildcards on `sub` alongside an exact `repository` check.
+
+### Updated `github_oidc.tf`
 
 ```hcl
 data "aws_iam_policy_document" "github_oidc_assume_role" {
@@ -81,14 +91,21 @@ data "aws_iam_policy_document" "github_oidc_assume_role" {
       identifiers = [aws_iam_openid_connect_provider.github.arn]
     }
 
-    # Audience check
+    # 1. Enforce correct token audience
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:aud"
       values   = ["sts.amazonaws.com"]
     }
 
-    # Match exact repository full path (avoids sub formatting/ID issues entirely)
+    # 2. Satisfy AWS IAM mandatory 'sub' check using wildcards for ID strings
+    condition {
+      test     = "StringLike"
+      variable = "token.actions.githubusercontent.com:sub"
+      values   = ["repo:${var.github_owner}*/*:ref:refs/heads/main"]
+    }
+
+    # 3. Enforce precise repository path matching
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:repository"
@@ -101,19 +118,8 @@ data "aws_iam_policy_document" "github_oidc_assume_role" {
 
 ---
 
-### Alternative: Wildcarding `sub`
+## 💡 Key Takeaways & Best Practices
 
-If you still want to condition on `sub`, you can use `StringLike` with wildcards to bypass the injected IDs:
-
-```hcl
-condition {
-  test     = "StringLike"
-  variable = "token.actions.githubusercontent.com:sub"
-  values   = ["repo:${var.github_owner}*/*:ref:refs/heads/main"]
-}
-
-```
-
-> **Recommendation:** Using **`token.actions.githubusercontent.com:repository`** (the first snippet) is cleaner, safer, and completely immune to how GitHub formats `sub` across different account configurations.
-
-Run `terraform apply` and re-run my action!
+1. **JWT Inspection:** Decoding OIDC tokens in CI/CD pipeline steps is the most effective way to debug claim-level condition failures.
+2. **Wildcard Flexibility:** Accounts with GitHub Enterprise, custom policies, or unique org setups may inject account/repo IDs into the `sub` claim. Using `StringLike` with wildcards (`*`) accommodates structural differences without compromising security boundaries.
+3. **Defense in Depth:** Combining wildcarded `sub` conditions with explicit `repository` checks keeps trust policies strict while adhering to AWS policy validator constraints.
