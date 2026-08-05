@@ -2,200 +2,70 @@ name: Continuous Integration
 
 on:
   push:
-    branches:
-      - main
-
+    branches: [ main ]
   pull_request:
-    branches:
-      - main
-
-permissions:
-  id-token: write
-  contents: read
+    branches: [ main ]
 
 jobs:
-  build:
+  test-and-validate:
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      # --- 1. PYTHON CHECKS ---
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.13"
 
-      - name: Install Python Dependencies
+      - name: Install Dependencies
         working-directory: app
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Python Syntax Check
+      - name: Syntax Check & Import Verification
         working-directory: app
         run: |
           python -m compileall .
-
-      - name: Verify Flask Imports
-        working-directory: app
-        run: |
           python -c "import app"
 
+      # --- 2. TERRAFORM & SECURITY ---
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
       - name: Terraform Format Check
         working-directory: terraform
-
         run: terraform fmt -check -recursive
 
-      - name: Terraform Initialize
+      - name: Terraform Init & Validate
         working-directory: terraform
+        run: |
+          terraform init -backend=false
+          terraform validate
 
-        run: terraform init -backend=false
-
-      - name: Terraform Validate
-        working-directory: terraform
-
-        run: terraform validate
-
-      - name: Run Checkov Scan
+      - name: Run Checkov Security Scan
         uses: bridgecrewio/checkov-action@v12
-
         with:
           directory: terraform
           framework: terraform
           quiet: true
 
-      - name: Build Docker Image
-        run: |
-          docker build \
-            -t flask-ecs-cicd-demo:test \
-            app
+      # --- 3. DOCKER INTEGRATION TEST ---
+      - name: Build Local Test Image
+        run: docker build -t flask-ecs-cicd-demo:test app
 
-      - name: Start Container
+      - name: Test Container Health
         run: |
-          docker run -d \
-            --name flask-demo \
-            -p 5000:5000 \
-            flask-ecs-cicd-demo:test
-
-      - name: Wait for Startup
-        run: sleep 5
-
-      - name: Verify Health Endpoint
-        run: |
+          docker run -d --name flask-demo -p 5000:5000 flask-ecs-cicd-demo:test
+          sleep 5
           curl --fail http://localhost:5000/health
-
-      - name: Verify Info Endpoint
-        run: |
           curl --fail http://localhost:5000/info
 
-      - name: Debug OIDC Token Claims
-        run: |
-          # Request ID token from GitHub OIDC provider
-          TOKEN=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r '.value')
-          
-          # Decode base64 payload to inspect claims
-          echo "=== OIDC TOKEN PAYLOAD ==="
-          echo "$TOKEN" | jq -R 'split(".") | .[1] | @base64d | fromjson'
-
-      - name: Configure AWS Credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
-
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ap-south-1
-
-      - name: Verify AWS Identity
-        run: |
-          aws sts get-caller-identity
-
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Verify ECR Access
-        run: |
-          aws ecr describe-repositories
-
-      - name: Build Docker Image
-        run: |
-          docker build \
-            -t flask-ecs-cicd-demo:${{ github.sha }} \
-            app
-
-      - name: Tag Image
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: flask-ecs-cicd-demo
-
-        run: |
-          docker tag \
-            flask-ecs-cicd-demo:${{ github.sha }} \
-            $ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }}
-
-      - name: Push Image
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: flask-ecs-cicd-demo
-
-        run: |
-          docker push \
-            $ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }}
-
-      - name: Verify Image
-        run: |
-          aws ecr list-images \
-            --repository-name flask-ecs-cicd-demo
-
-      - name: Download Current Task Definition
-        run: |
-          aws ecs describe-task-definition \
-            --task-definition flask-ecs-cicd-demo \
-            --query taskDefinition \
-            > task-definition.json
-
-      - name: Render ECS Task Definition
-        id: render-task
-
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
-
-        with:
-          task-definition: task-definition.json
-          container-name: flask-ecs-cicd-demo
-          image: ${{ steps.login-ecr.outputs.registry }}/flask-ecs-cicd-demo:${{ github.sha }}
-
-
-      - name: Deploy to Amazon ECS
-
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
-
-        with:
-          task-definition: ${{ steps.render-task.outputs.task-definition }}
-
-          cluster: shaurya-devops-ecs-cluster
-
-          service: shaurya-devops-flask-service
-
-          wait-for-service-stability: true
-
-      - name: Show Running Task Definition
-        run: |
-          aws ecs describe-services \
-            --cluster shaurya-devops-ecs-cluster \
-            --services shaurya-devops-flask-service \
-            --query "services[0].taskDefinition"
-
-
-
-      - name: Cleanup
+      - name: Cleanup Container
         if: always()
-
         run: |
-          docker stop flask-demo
-          docker rm flask-demo
-
+          docker stop flask-demo || true
+          docker rm flask-demo || true
