@@ -24,19 +24,25 @@ data "aws_iam_policy_document" "github_oidc_assume_role" {
       identifiers = [aws_iam_openid_connect_provider.github.arn]
     }
 
+    # Audience check (Must be sts.amazonaws.com)
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:aud"
       values   = ["sts.amazonaws.com"]
     }
 
+    # Scope 1: Match Repository (Wildcard for all branches, PRs, environments)
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values = [
-        "repo:${var.github_owner}/${var.github_repo}:ref:refs/heads/main",
-        "repo:${var.github_owner}/${var.github_repo}:pull_request"
-      ]
+      values   = ["repo:${var.github_owner}/${var.github_repo}:*"]
+    }
+
+    # Scope 2: Enforce Repository Owner explicitly
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:repository_owner"
+      values   = [var.github_owner]
     }
   }
 }
