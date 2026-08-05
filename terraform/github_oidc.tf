@@ -24,25 +24,26 @@ data "aws_iam_policy_document" "github_oidc_assume_role" {
       identifiers = [aws_iam_openid_connect_provider.github.arn]
     }
 
-    # Audience check (Must be sts.amazonaws.com)
+    # 1. Required Audience check
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:aud"
       values   = ["sts.amazonaws.com"]
     }
 
-    # Scope 1: Match Repository (Wildcard for all branches, PRs, environments)
+    # 2. Required by AWS IAM: Must evaluate 'sub'
+    # Wildcards '*' flexibly match internal GitHub ID annotations (@277283673, etc.)
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_owner}/${var.github_repo}:*"]
+      values   = ["repo:${var.github_owner}*/*:ref:refs/heads/main"]
     }
 
-    # Scope 2: Enforce Repository Owner explicitly
+    # 3. Precise Repository check
     condition {
       test     = "StringEquals"
-      variable = "token.actions.githubusercontent.com:repository_owner"
-      values   = [var.github_owner]
+      variable = "token.actions.githubusercontent.com:repository"
+      values   = ["${var.github_owner}/${var.github_repo}"]
     }
   }
 }

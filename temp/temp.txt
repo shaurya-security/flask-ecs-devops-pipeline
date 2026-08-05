@@ -1,5 +1,0 @@
--   **v0:** AWS infrastructure provisioned through the AWS CLI - vpc to ec2 and userdata for wazuh & cloudtrail + vpcflowlogs pipeline. - bastion as nat and ssh
--   **v1:** terraform - vpc to ec2, bastion as nat and ssh. 
--   **v2:** Secure AWS networking with Terraform - vpc to ec2, nat gateway and ssm + checkov
--   **v3 (current):** Production-style container deployment with Amazon
-    ECS Fargate
